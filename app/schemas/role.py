@@ -4,16 +4,20 @@ from datetime import datetime
 
 class RoleBase(BaseModel):
     name: str
+    description: Optional[str] = None
     org_id: Optional[str] = None
     permissions: Optional[Dict[str, Any]] = None
+    status: Optional[str] = "active"
 
 class RoleCreate(RoleBase):
     pass
 
 class RoleUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
     org_id: Optional[str] = None
     permissions: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
 
 class RoleInDB(RoleBase):
     id: str

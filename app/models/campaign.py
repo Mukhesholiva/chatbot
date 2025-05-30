@@ -28,4 +28,7 @@ class Campaign(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     telephonic_provider = Column(String(50))
-    knowledge_base = Column(JSON) 
+    knowledge_base = Column(JSON)
+
+    # Relationship with Call
+    calls = relationship("Call", back_populates="campaign") 

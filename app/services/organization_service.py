@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 import uuid
 from ..models.organization import Organization
 from ..schemas.organization import OrganizationCreate, OrganizationUpdate
+from datetime import datetime
 
 class OrganizationService:
     @staticmethod
@@ -11,11 +12,10 @@ class OrganizationService:
             id=org_id,
             name=organization.name,
             code=organization.code,
-            address=organization.address,
-            phone=organization.phone,
+            description=organization.description,
             status=organization.status,
             created_by=current_user_id,
-            last_modified_by=current_user_id
+            modified_by=current_user_id
         )
         db.add(db_org)
         db.commit()
@@ -46,7 +46,8 @@ class OrganizationService:
             update_data = organization.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(db_org, field, value)
-            db_org.last_modified_by = current_user_id
+            db_org.modified_by = current_user_id
+            db_org.modified_at = datetime.utcnow()
             db.commit()
             db.refresh(db_org)
         return db_org

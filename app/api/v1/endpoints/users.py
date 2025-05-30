@@ -136,9 +136,9 @@ async def get_users(
 ) -> List[UserResponse]:
     """
     Get all users with pagination.
-    Only users with admin role can access this endpoint.
+    Only users with superuser role can access this endpoint.
     """
-    if current_user.role != "admin":
+    if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to access this endpoint"
