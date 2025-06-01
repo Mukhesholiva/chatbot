@@ -110,12 +110,14 @@ CREATE TABLE campaigns (
     callback_endpoint VARCHAR(255),
     retry_config NVARCHAR(MAX),
     account_id VARCHAR(50),
+    org_id VARCHAR(50),
     created_by INT,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     is_active BIT DEFAULT 1,
     telephonic_provider VARCHAR(50),
-    knowledge_base NVARCHAR(MAX)
+    knowledge_base NVARCHAR(MAX),
+    CONSTRAINT FK_campaigns_org_id FOREIGN KEY (org_id) REFERENCES organizations(id)
 );
 GO
 

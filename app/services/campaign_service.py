@@ -5,6 +5,8 @@ import httpx
 import json
 from datetime import datetime
 import uuid
+from sqlalchemy import select
+from sqlalchemy import text
 
 class CampaignService:
     # Hardcoded credentials for external API
@@ -104,6 +106,7 @@ class CampaignService:
                 callback_endpoint=campaign.callback_endpoint,
                 retry_config=campaign.retry,
                 account_id=campaign.account_id,
+                org_id=campaign.org_id,
                 created_by=campaign.created_by,
                 is_active=campaign.is_active,
                 telephonic_provider=campaign.telephonic_provider,
@@ -135,11 +138,195 @@ class CampaignService:
             raise Exception(f"Failed to create campaign: {str(e)}")
 
     @staticmethod
-    async def get_campaign(db: Session, campaign_id: str) -> Campaign:
+    async def get_campaign(db: Session, campaign_id: str) -> CampaignResponse:
         """Get campaign by ID."""
-        return db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not campaign:
+            return None
+            
+        # Convert to response format
+        response_data = {
+            "id": campaign.id,
+            "name": campaign.name,
+            "direction": campaign.direction,
+            "inbound_number": campaign.inbound_number,
+            "caller_id_number": campaign.caller_id_number,
+            "state": campaign.state,
+            "version": campaign.version,
+            "llm": campaign.llm_config,
+            "tts": campaign.tts_config,
+            "stt": campaign.stt_config,
+            "timezone": campaign.timezone,
+            "post_call_actions": campaign.post_call_actions,
+            "live_actions": campaign.live_actions,
+            "callback_endpoint": campaign.callback_endpoint,
+            "retry": campaign.retry_config,
+            "account_id": campaign.account_id,
+            "created_by": campaign.created_by,
+            "created_at": campaign.created_at,
+            "updated_at": campaign.updated_at,
+            "is_active": campaign.is_active,
+            "telephonic_provider": campaign.telephonic_provider,
+            "knowledge_base": campaign.knowledge_base,
+            "org_id": campaign.org_id
+        }
+        return CampaignResponse(**response_data)
 
     @staticmethod
-    async def get_all_campaigns(db: Session, skip: int = 0, limit: int = 100):
-        """Get all campaigns with pagination."""
-        return db.query(Campaign).offset(skip).limit(limit).all() 
+    async def update_campaign(db: Session, campaign_id: str, campaign_update: dict) -> CampaignResponse:
+        """Update campaign by ID."""
+        # Get existing campaign
+        db_campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not db_campaign:
+            return None
+
+        # Update campaign fields
+        for field, value in campaign_update.items():
+            if field in ["llm", "tts", "stt", "retry"]:
+                # Handle config fields
+                config_field = f"{field}_config"
+                setattr(db_campaign, config_field, value)
+            else:
+                setattr(db_campaign, field, value)
+
+        try:
+            db.commit()
+            db.refresh(db_campaign)
+
+            # Convert to response format
+            response_data = {
+                "id": db_campaign.id,
+                "name": db_campaign.name,
+                "direction": db_campaign.direction,
+                "inbound_number": db_campaign.inbound_number,
+                "caller_id_number": db_campaign.caller_id_number,
+                "state": db_campaign.state,
+                "version": db_campaign.version,
+                "llm": db_campaign.llm_config,
+                "tts": db_campaign.tts_config,
+                "stt": db_campaign.stt_config,
+                "timezone": db_campaign.timezone,
+                "post_call_actions": db_campaign.post_call_actions,
+                "live_actions": db_campaign.live_actions,
+                "callback_endpoint": db_campaign.callback_endpoint,
+                "retry": db_campaign.retry_config,
+                "account_id": db_campaign.account_id,
+                "created_by": db_campaign.created_by,
+                "created_at": db_campaign.created_at,
+                "updated_at": db_campaign.updated_at,
+                "is_active": db_campaign.is_active,
+                "telephonic_provider": db_campaign.telephonic_provider,
+                "knowledge_base": db_campaign.knowledge_base,
+                "org_id": db_campaign.org_id
+            }
+            return CampaignResponse(**response_data)
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to update campaign: {str(e)}")
+
+    @staticmethod
+    async def delete_campaign(db: Session, campaign_id: str) -> bool:
+        """Delete campaign by ID."""
+        try:
+            # First, check if campaign exists
+            campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+            if not campaign:
+                return False
+
+            # Use raw SQL to delete the campaign to avoid SQLAlchemy relationship issues
+            
+            # Delete any related calls first (if they exist)
+            delete_calls_sql = text("""
+                IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'calls')
+                BEGIN
+                    DELETE FROM calls WHERE campaign_id = :campaign_id
+                END
+            """)
+            
+            # Delete the campaign
+            delete_campaign_sql = text("""
+                DELETE FROM campaigns 
+                WHERE id = :campaign_id
+            """)
+
+            # Execute the deletions in a transaction
+            try:
+                db.execute(delete_calls_sql, {"campaign_id": campaign_id})
+                db.execute(delete_campaign_sql, {"campaign_id": campaign_id})
+                db.commit()
+                return True
+            except Exception as e:
+                db.rollback()
+                raise Exception(f"Database error during deletion: {str(e)}")
+
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to delete campaign: {str(e)}")
+
+    @staticmethod
+    async def get_campaigns(db: Session, skip: int = 0, limit: int = 1000):
+        """Get all campaigns with pagination, limited to 1000 records."""
+        from sqlalchemy import select
+        
+        # Create a select statement with specific column order
+        query = select(
+            Campaign.id,
+            Campaign.name,
+            Campaign.direction,
+            Campaign.inbound_number,
+            Campaign.caller_id_number,
+            Campaign.state,
+            Campaign.version,
+            Campaign.llm_config,
+            Campaign.tts_config,
+            Campaign.stt_config,
+            Campaign.timezone,
+            Campaign.post_call_actions,
+            Campaign.live_actions,
+            Campaign.callback_endpoint,
+            Campaign.retry_config,
+            Campaign.account_id,
+            Campaign.created_by,
+            Campaign.created_at,
+            Campaign.updated_at,
+            Campaign.is_active,
+            Campaign.telephonic_provider,
+            Campaign.knowledge_base,
+            Campaign.org_id
+        ).select_from(Campaign).order_by(Campaign.created_at.desc()).offset(skip).limit(limit)
+
+        # Execute query
+        result = db.execute(query)
+        campaigns = result.all()
+
+        # Convert to list of dictionaries with proper field names
+        campaign_list = []
+        for campaign in campaigns:
+            campaign_dict = {
+                "id": campaign.id,
+                "name": campaign.name,
+                "direction": campaign.direction,
+                "inbound_number": campaign.inbound_number,
+                "caller_id_number": campaign.caller_id_number,
+                "state": campaign.state,
+                "version": campaign.version,
+                "llm": campaign.llm_config,
+                "tts": campaign.tts_config,
+                "stt": campaign.stt_config,
+                "timezone": campaign.timezone,
+                "post_call_actions": campaign.post_call_actions,
+                "live_actions": campaign.live_actions,
+                "callback_endpoint": campaign.callback_endpoint,
+                "retry": campaign.retry_config,
+                "account_id": campaign.account_id,
+                "created_by": campaign.created_by,
+                "created_at": campaign.created_at,
+                "updated_at": campaign.updated_at,
+                "is_active": campaign.is_active,
+                "telephonic_provider": campaign.telephonic_provider,
+                "knowledge_base": campaign.knowledge_base,
+                "org_id": campaign.org_id
+            }
+            campaign_list.append(CampaignResponse(**campaign_dict))
+
+        return campaign_list 

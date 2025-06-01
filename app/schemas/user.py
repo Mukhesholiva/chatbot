@@ -14,7 +14,7 @@ class UserBase(BaseModel):
     first_name: str
     last_name: str
     mobile_number: str
-    role: Optional[str] = "user"
+    role_id: Optional[str] = None
     status: str = "active"
     organization_id: Optional[str] = None
     is_superuser: bool = False
@@ -30,7 +30,7 @@ class UserUpdate(BaseModel):
     last_name: Optional[str] = None
     mobile_number: Optional[str] = None
     password: Optional[str] = None
-    role: Optional[str] = None
+    role_id: Optional[str] = None
     status: Optional[str] = None
     organization_id: Optional[str] = None
     is_superuser: Optional[bool] = None

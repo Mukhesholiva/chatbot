@@ -9,7 +9,6 @@ import os
 from sqlalchemy import text
 from ..core.security import get_password_hash
 import uuid
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class UserService:
@@ -63,7 +62,7 @@ class UserService:
         # Check if organization exists if provided
         if user.organization_id:
             org_exists = db.execute(
-                "SELECT 1 FROM organizations WHERE id = :org_id",
+                text("SELECT 1 FROM organizations WHERE id = :org_id"),
                 {"org_id": user.organization_id}
             ).scalar()
             if not org_exists:
@@ -71,6 +70,23 @@ class UserService:
         else:
             # Use default organization if none provided
             user.organization_id = "org_1"
+
+        # Check if role exists
+        if user.role_id:
+            role_exists = db.execute(
+                text("SELECT 1 FROM roles WHERE id = :role_id"),
+                {"role_id": user.role_id}
+            ).scalar()
+            if not role_exists:
+                raise ValueError(f"Role with ID {user.role_id} does not exist")
+        else:
+            # Get default user role ID
+            default_role = db.execute(
+                text("SELECT id FROM roles WHERE name = 'user' LIMIT 1")
+            ).scalar()
+            if not default_role:
+                raise ValueError("Default user role not found")
+            user.role_id = default_role
 
         db_user = User(
             id=str(uuid.uuid4()),
@@ -80,9 +96,9 @@ class UserService:
             mobile_number=user.mobile_number,
             hashed_password=get_password_hash(user.password),
             organization_id=user.organization_id,
-            role=user.role or "user",
-            created_by="system",
-            modified_by="system"
+            role_id=user.role_id,
+            created_by=user.created_by or "system",
+            modified_by=user.modified_by or "system"
         )
         db.add(db_user)
         db.commit()

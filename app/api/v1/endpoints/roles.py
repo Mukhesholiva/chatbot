@@ -6,6 +6,7 @@ from ....services.role_service import RoleService
 from ....schemas.role import RoleCreate, RoleUpdate, RoleResponse, UserRoleCreate, UserRoleResponse
 from ....core.auth import get_current_user
 from ....models.user import User
+from ....models.role import Role
 
 router = APIRouter()
 
@@ -114,7 +115,8 @@ def get_roles(
     if org_id:
         roles = RoleService.get_roles_by_org(db, org_id=org_id)
     else:
-        roles = RoleService.get_global_roles(db)
+        # Get all roles instead of just global roles
+        roles = db.query(Role).all()
     return roles
 
 @router.post("/assign", response_model=UserRoleResponse)

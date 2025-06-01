@@ -39,6 +39,7 @@ class CampaignBase(BaseModel):
     callback_endpoint: str = ""
     retry: Dict[str, Any] = {}
     account_id: str
+    org_id: Optional[str] = None
     created_by: int
     is_active: bool = True
     telephonic_provider: str
@@ -50,6 +51,11 @@ class CampaignCreate(CampaignBase):
     updated_at: Optional[datetime] = None
     username: Optional[str] = None
     password: Optional[str] = None
+
+class CampaignUpdate(CampaignBase):
+    id: str
+    created_at: datetime
+    updated_at: datetime
 
 class CampaignResponse(CampaignBase):
     id: str

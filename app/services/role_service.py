@@ -26,11 +26,17 @@ class RoleService:
         return db.query(Role).filter(Role.org_id.is_(None)).all()
 
     @staticmethod
+    def get_all_roles(db: Session) -> List[Role]:
+        return db.query(Role).all()
+
+    @staticmethod
     def create_role(db: Session, role: RoleCreate, current_user_id: str) -> Role:
         db_role = Role(
             name=role.name,
+            description=role.description,
             org_id=role.org_id,
             permissions=role.permissions,
+            status=role.status,
             created_by=current_user_id,
             modified_by=current_user_id
         )

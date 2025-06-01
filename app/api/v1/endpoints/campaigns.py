@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict, Any
 from ....db.session import get_db
 from ....services.campaign_service import CampaignService
-from ....schemas.campaign import CampaignCreate, CampaignResponse
+from ....schemas.campaign import CampaignCreate, CampaignResponse, CampaignUpdate
 from ....core.auth import get_current_active_user
 from ....models.user import User
 
@@ -58,4 +58,47 @@ async def get_campaigns(
     Get all campaigns with pagination.
     """
     campaigns = await CampaignService.get_campaigns(db, skip=skip, limit=limit)
-    return list(campaigns) 
+    return campaigns
+
+@router.put("/{campaign_id}", response_model=CampaignResponse)
+async def update_campaign(
+    *,
+    db: Session = Depends(get_db),
+    campaign_id: str,
+    campaign_update: CampaignUpdate,
+    current_user: User = Depends(get_current_active_user)
+) -> CampaignResponse:
+    """
+    Update a campaign by ID. Requires all campaign fields.
+    """
+    if campaign_id != campaign_update.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Campaign ID in path does not match ID in update data"
+        )
+    
+    updated_campaign = await CampaignService.update_campaign(db, campaign_id, campaign_update.model_dump())
+    if not updated_campaign:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
+    return updated_campaign
+
+@router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_campaign(
+    *,
+    db: Session = Depends(get_db),
+    campaign_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Delete a campaign by ID.
+    """
+    deleted = await CampaignService.delete_campaign(db, campaign_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found"
+        )
+    return None 

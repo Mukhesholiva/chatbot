@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 class CallBase(BaseModel):
@@ -19,7 +19,39 @@ class CallResponse(CallBase):
     call_id: str
     created_at: datetime
     updated_at: datetime
-    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+class ExternalCallDetail(BaseModel):
+    Sid: str
+    ParentCallSid: Optional[str] = ""
+    DateCreated: str
+    DateUpdated: str
+    AccountSid: str
+    To: str
+    From: str
+    PhoneNumber: str
+    PhoneNumberSid: str
+    Status: str
+    StartTime: str
+    EndTime: Optional[str] = None
+    Duration: Optional[int] = 0
+    Price: Optional[float] = 0.0
+    Direction: str
+    AnsweredBy: Optional[str] = None
+    ForwardedFrom: Optional[str] = ""
+    CallerName: Optional[str] = ""
+    Uri: str
+    CustomField: Optional[str] = "N/A"
+    RecordingUrl: Optional[str] = ""
+
+    class Config:
+        from_attributes = True
+
+class ExternalCallListResponse(BaseModel):
+    total: int
+    calls: List[ExternalCallDetail]
 
     class Config:
         from_attributes = True 

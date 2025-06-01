@@ -14,7 +14,7 @@ class User(Base):
     mobile_number = Column(String(20), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     organization_id = Column(String(50), ForeignKey("organizations.id"), nullable=True)
-    role = Column(String(50), ForeignKey("roles.name"), nullable=False)
+    role_id = Column(String(50), ForeignKey("roles.id"), nullable=False)
     status = Column(String(20), default="active")
     is_superuser = Column(Boolean, default=False)
 

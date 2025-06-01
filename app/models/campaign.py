@@ -23,6 +23,7 @@ class Campaign(Base):
     callback_endpoint = Column(String(255))
     retry_config = Column(JSON)
     account_id = Column(String(50))
+    org_id = Column(String(50), ForeignKey("organizations.id"), nullable=True)
     created_by = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -31,4 +32,6 @@ class Campaign(Base):
     knowledge_base = Column(JSON)
 
     # Relationship with Call
-    calls = relationship("Call", back_populates="campaign") 
+    calls = relationship("Call", back_populates="campaign")
+    # Relationship with Organization
+    organization = relationship("Organization") 
