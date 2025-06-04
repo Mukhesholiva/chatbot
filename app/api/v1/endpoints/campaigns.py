@@ -17,10 +17,16 @@ async def create_campaign(
     current_user: User = Depends(get_current_active_user)
 ) -> CampaignResponse:
     """
-    Create a new campaign.
+    Create a new campaign. For non-superusers, the campaign will be automatically
+    associated with the current user.
     """
     try:
-        campaign = await CampaignService.create_campaign_with_external(db, campaign=campaign_in)
+        campaign = await CampaignService.create_campaign_with_external(
+            db=db,
+            campaign=campaign_in,
+            current_user_id=current_user.id,
+            is_superuser=current_user.is_superuser
+        )
         return campaign
     except Exception as e:
         raise HTTPException(
@@ -48,17 +54,28 @@ async def get_campaign(
 
 @router.get("/", response_model=List[CampaignResponse])
 async def get_campaigns(
-    *,
-    db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> List[CampaignResponse]:
     """
-    Get all campaigns with pagination.
+    Get all campaigns. For superusers, returns all campaigns.
+    For regular users, returns only their associated campaigns.
     """
-    campaigns = await CampaignService.get_campaigns(db, skip=skip, limit=limit)
-    return campaigns
+    try:
+        return await CampaignService.get_user_campaigns(
+            db=db,
+            user_id=current_user.id,
+            is_superuser=current_user.is_superuser,
+            skip=skip,
+            limit=limit
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @router.put("/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(

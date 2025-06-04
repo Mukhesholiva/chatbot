@@ -34,4 +34,6 @@ class Campaign(Base):
     # Relationship with Call
     calls = relationship("Call", back_populates="campaign")
     # Relationship with Organization
-    organization = relationship("Organization") 
+    organization = relationship("Organization")
+    # Relationship with UserCampaign
+    users = relationship("UserCampaign", back_populates="campaign") 

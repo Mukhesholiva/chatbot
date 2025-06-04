@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from ..models.campaign import Campaign
+from ..models.user_campaign import UserCampaign
 from ..schemas.campaign import CampaignCreate, CampaignResponse
 import httpx
 import json
@@ -39,12 +40,15 @@ class CampaignService:
     async def create_campaign_with_external(
         db: Session,
         campaign: CampaignCreate,
-        username: str = None,  # These parameters are kept for backward compatibility
-        password: str = None   # but will be ignored as we use hardcoded credentials
+        current_user_id: str = None,
+        is_superuser: bool = False,
+        username: str = None,
+        password: str = None
     ) -> Campaign:
         """
         Create campaign both in external system and database.
         Uses hardcoded credentials for external API authentication.
+        For non-superusers, also creates a user-campaign association.
         """
         try:
             # Get access token using hardcoded credentials
@@ -52,6 +56,9 @@ class CampaignService:
 
             # Prepare campaign data for external API
             campaign_data = campaign.model_dump()
+            
+            # Remove fields that shouldn't be sent to external API
+            external_campaign_data = {k: v for k, v in campaign_data.items() if k not in ['org_id']}
             
             # Check if campaign with this ID already exists
             if campaign_data.get("id"):
@@ -66,31 +73,31 @@ class CampaignService:
             # Set timestamps if not provided
             current_time = datetime.utcnow()
             if "created_at" not in campaign_data:
-                campaign_data["created_at"] = current_time.isoformat()
+                campaign_data["created_at"] = current_time
             if "updated_at" not in campaign_data:
-                campaign_data["updated_at"] = current_time.isoformat()
+                campaign_data["updated_at"] = current_time
 
-            # Convert any datetime objects to ISO format strings
-            campaign_data = json.loads(
+            # Create campaign in external system
+            # Convert datetime objects to ISO format for JSON serialization
+            external_campaign_data = json.loads(
                 json.dumps(
-                    campaign_data,
+                    external_campaign_data,
                     default=CampaignService._serialize_datetime
                 )
             )
 
-            # Create campaign in external system
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{CampaignService.EXTERNAL_API_BASE_URL}/create-campaign",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    json=campaign_data
+                    json=external_campaign_data
                 )
                 response.raise_for_status()
                 external_campaign = response.json()
 
             # Create campaign in database
             db_campaign = Campaign(
-                id=campaign_data["id"],  # Use the ID from campaign_data
+                id=campaign_data["id"],
                 name=campaign.name,
                 direction=campaign.direction,
                 inbound_number=campaign.inbound_number,
@@ -113,6 +120,18 @@ class CampaignService:
                 knowledge_base=campaign.knowledge_base.model_dump()
             )
             db.add(db_campaign)
+            
+            # If current_user_id is provided and user is not a superuser,
+            # create user-campaign association
+            if current_user_id and not is_superuser:
+                user_campaign = UserCampaign(
+                    user_id=current_user_id,
+                    campaign_id=db_campaign.id,
+                    created_by=str(campaign.created_by),
+                    modified_by=str(campaign.created_by)
+                )
+                db.add(user_campaign)
+            
             db.commit()
             db.refresh(db_campaign)
 
@@ -129,7 +148,12 @@ class CampaignService:
             response_data.pop("tts_config", None)
             response_data.pop("stt_config", None)
             response_data.pop("retry_config", None)
-            response_data.pop("_sa_instance_state", None)  # Remove SQLAlchemy internal state
+            response_data.pop("_sa_instance_state", None)
+
+            # Convert datetime objects to ISO format strings in response
+            response_data = json.loads(
+                json.dumps(response_data, default=CampaignService._serialize_datetime)
+            )
 
             return CampaignResponse(**response_data)
 
@@ -300,6 +324,70 @@ class CampaignService:
         campaigns = result.all()
 
         # Convert to list of dictionaries with proper field names
+        campaign_list = []
+        for campaign in campaigns:
+            campaign_dict = {
+                "id": campaign.id,
+                "name": campaign.name,
+                "direction": campaign.direction,
+                "inbound_number": campaign.inbound_number,
+                "caller_id_number": campaign.caller_id_number,
+                "state": campaign.state,
+                "version": campaign.version,
+                "llm": campaign.llm_config,
+                "tts": campaign.tts_config,
+                "stt": campaign.stt_config,
+                "timezone": campaign.timezone,
+                "post_call_actions": campaign.post_call_actions,
+                "live_actions": campaign.live_actions,
+                "callback_endpoint": campaign.callback_endpoint,
+                "retry": campaign.retry_config,
+                "account_id": campaign.account_id,
+                "created_by": campaign.created_by,
+                "created_at": campaign.created_at,
+                "updated_at": campaign.updated_at,
+                "is_active": campaign.is_active,
+                "telephonic_provider": campaign.telephonic_provider,
+                "knowledge_base": campaign.knowledge_base,
+                "org_id": campaign.org_id
+            }
+            campaign_list.append(CampaignResponse(**campaign_dict))
+
+        return campaign_list
+
+    @staticmethod
+    async def get_user_campaigns(
+        db: Session,
+        user_id: str,
+        is_superuser: bool = False,
+        skip: int = 0,
+        limit: int = 1000
+    ):
+        """Get all campaigns with pagination. For superusers, returns all campaigns.
+        For regular users, returns only their associated campaigns."""
+        from sqlalchemy import select
+        
+        # For superusers, return all campaigns
+        if is_superuser:
+            return await CampaignService.get_campaigns(db, skip=skip, limit=limit)
+        
+        # For regular users, return only their associated campaigns
+        query = select(
+            Campaign
+        ).join(
+            UserCampaign,
+            Campaign.id == UserCampaign.campaign_id
+        ).where(
+            UserCampaign.user_id == user_id
+        ).order_by(
+            Campaign.created_at.desc()
+        ).offset(skip).limit(limit)
+
+        # Execute query
+        result = db.execute(query)
+        campaigns = result.scalars().all()
+
+        # Convert to response format
         campaign_list = []
         for campaign in campaigns:
             campaign_dict = {

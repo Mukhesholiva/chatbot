@@ -85,7 +85,7 @@ class CallService:
             )
             response.raise_for_status()
             data = response.json()
-            return ExternalCallListResponse(**{
-                "total": data.get("call_details", {}).get("total", 0),
-                "calls": data.get("call_details", {}).get("calls", [])
-            }) 
+            return ExternalCallListResponse(
+                total=len(data.get("call_details", [])),
+                calls=data.get("call_details", [])
+            )

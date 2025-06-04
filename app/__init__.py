@@ -1,1 +1,3 @@
- 
+"""
+Initialize the app package
+""" 

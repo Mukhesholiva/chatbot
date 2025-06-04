@@ -26,3 +26,4 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="users")
     user_roles = relationship("UserRole", back_populates="user", lazy="joined")
+    campaigns = relationship("UserCampaign", back_populates="user")
