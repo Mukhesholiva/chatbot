@@ -51,11 +51,12 @@ class CampaignCreate(CampaignBase):
     updated_at: Optional[datetime] = None
     username: Optional[str] = None
     password: Optional[str] = None
-
+    allow_interruption: Optional[bool] = True
 class CampaignUpdate(CampaignBase):
     id: str
     created_at: datetime
     updated_at: datetime
+    allow_interruption: Optional[bool] = True
 
 class CampaignResponse(CampaignBase):
     id: str

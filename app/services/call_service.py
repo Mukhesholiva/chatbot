@@ -13,7 +13,7 @@ class CallService:
         async with httpx.AsyncClient() as client:
             # Convert the data to dict and ensure metadata is used in the API call
             api_data = call_data.model_dump(by_alias=False)
-            print("API Request Data:", api_data)
+            # print("API Request Data:", api_data)
             
             # Ensure campaign_id is included in the request
             request_data = {
@@ -22,7 +22,7 @@ class CallService:
                 "metadata": api_data["metadata"],
                 "campaign_id": api_data["campaign_id"]  # Explicitly include campaign_id
             }
-            print("Request Data with Campaign ID:", request_data)
+            # print("Request Data with Campaign ID:", request_data)
             
             response = await client.post(
                 "https://platform.voicelabs.in/api/v1/create-call",
@@ -32,8 +32,8 @@ class CallService:
                 },
                 json=request_data
             )
-            print("Auth Token:", auth_token)
-            print("API Response:", response.text)
+            # print("Auth Token:", auth_token)
+            # print("API Response:", response.text)
             
             response.raise_for_status()
             api_response = response.json()

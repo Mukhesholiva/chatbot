@@ -198,18 +198,17 @@ class CampaignService:
 
     @staticmethod
     async def update_campaign(db: Session, campaign_id: str, campaign_update: dict) -> CampaignResponse:
-        """Update campaign by ID."""
-        # Get existing campaign
+        """Update campaign by ID in local DB and sync with external API."""
+        
+        # Fetch from DB
         db_campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         if not db_campaign:
             return None
 
-        # Update campaign fields
+        # Update local fields
         for field, value in campaign_update.items():
             if field in ["llm", "tts", "stt", "retry"]:
-                # Handle config fields
-                config_field = f"{field}_config"
-                setattr(db_campaign, config_field, value)
+                setattr(db_campaign, f"{field}_config", value)
             else:
                 setattr(db_campaign, field, value)
 
@@ -217,14 +216,15 @@ class CampaignService:
             db.commit()
             db.refresh(db_campaign)
 
-            # Convert to response format
-            response_data = {
+            # External API payload structure
+            payload = {
                 "id": db_campaign.id,
                 "name": db_campaign.name,
                 "direction": db_campaign.direction,
                 "inbound_number": db_campaign.inbound_number,
                 "caller_id_number": db_campaign.caller_id_number,
                 "state": db_campaign.state,
+                "allow_interruption": getattr(db_campaign, "allow_interruption", False),
                 "version": db_campaign.version,
                 "llm": db_campaign.llm_config,
                 "tts": db_campaign.tts_config,
@@ -236,17 +236,33 @@ class CampaignService:
                 "retry": db_campaign.retry_config,
                 "account_id": db_campaign.account_id,
                 "created_by": db_campaign.created_by,
-                "created_at": db_campaign.created_at,
-                "updated_at": db_campaign.updated_at,
+                "created_at": db_campaign.created_at.isoformat() if db_campaign.created_at else None,
+                "updated_at": db_campaign.updated_at.isoformat() if db_campaign.updated_at else None,
                 "is_active": db_campaign.is_active,
                 "telephonic_provider": db_campaign.telephonic_provider,
-                "knowledge_base": db_campaign.knowledge_base,
-                "org_id": db_campaign.org_id
+                "knowledge_base": db_campaign.knowledge_base
             }
-            return CampaignResponse(**response_data)
+
+            # Get token
+            access_token = await CampaignService.get_access_token()
+
+            # Call external API
+            async with httpx.AsyncClient() as client:
+                response = await client.put(
+                    "https://platform.voicelabs.in/api/v1/update-campaign",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload
+                )
+                response.raise_for_status()
+
+            return CampaignResponse(**payload)
+
         except Exception as e:
             db.rollback()
-            raise Exception(f"Failed to update campaign: {str(e)}")
+            raise Exception(f"Update failed: {str(e)}")
 
     @staticmethod
     async def delete_campaign(db: Session, campaign_id: str) -> bool:

@@ -110,3 +110,8 @@ async def remove_campaign_from_user(
                 detail="User-Campaign association not found"
             )
         return {"message": "Campaign assignment removed successfully"} 
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
