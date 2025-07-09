@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 4. Create a `.env` file in the root directory with the following content:
 ```
-DB_SERVER=183.82.126.21
+DB_SERVER=111.93.26.122
 DB_NAME=voicebot
 DB_USER=sa
 DB_PASSWORD=Oliva@9876

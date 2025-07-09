@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 
 class LLMConfig(BaseModel):
@@ -23,45 +23,57 @@ class KnowledgeBase(BaseModel):
     url: str
     file: Optional[str] = None
 
+class SpeechSetting(BaseModel):
+    interruption: Dict[str, Any]
+    ambient_sound: Dict[str, Any]
+
 class CampaignBase(BaseModel):
     name: str
-    direction: str
-    inbound_number: Optional[str] = ""
-    caller_id_number: Optional[str] = ""
-    state: str
-    version: int = 0
-    llm: LLMConfig
-    tts: TTSConfig
+    direction: str = "OUTBOUND"
+    inbound_number: str = ""
+    caller_id_number: str = ""
+    state: str = "TRIAL"
+    version: Union[str, int] = "0"
+    llm: Dict[str, Any] = {}
+    tts: Dict[str, Any] = {}
     stt: Dict[str, Any] = {}
-    timezone: str
-    post_call_actions: Dict[str, Any]
-    live_actions: list = []
+    timezone: str = "UTC"
+    post_call_actions: Dict[str, Any] = {}
+    live_actions: List[Dict[str, Any]] = []
     callback_endpoint: str = ""
     retry: Dict[str, Any] = {}
-    account_id: str
+    account_id: str = ""
+    telephonic_provider: str = "exotel"
+    allow_interruption: bool = True
+    speech_setting: Dict[str, Any] = {}
+    knowledge_base: Dict[str, Any] = {}
+    id: Optional[str] = None
     org_id: Optional[str] = None
-    created_by: int
+    created_by: Optional[str] = None
     is_active: bool = True
-    telephonic_provider: str
-    knowledge_base: KnowledgeBase
 
 class CampaignCreate(CampaignBase):
-    id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     username: Optional[str] = None
     password: Optional[str] = None
-    allow_interruption: Optional[bool] = True
+    created_by: Optional[int] = None
+    knowledge_base: Optional[KnowledgeBase] = None
+
 class CampaignUpdate(CampaignBase):
-    id: str
     created_at: datetime
     updated_at: datetime
-    allow_interruption: Optional[bool] = True
 
 class CampaignResponse(CampaignBase):
-    id: str
     created_at: datetime
     updated_at: datetime
-
+    llm: Dict[str, Any] = {}
+    tts: Dict[str, Any] = {}
+    stt: Dict[str, Any] = {}
+    retry: Dict[str, Any] = {}
+    
     class Config:
-        from_attributes = True 
+        from_attributes = True  # For SQLAlchemy model compatibility
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }

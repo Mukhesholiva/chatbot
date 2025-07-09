@@ -23,21 +23,31 @@ async def create_call(
     """
     Create a new call.
     """
+    # Hardcoded credentials for external API
+    EXTERNAL_API_CREDENTIALS = {
+        "username": "rakeshVoxiflow",
+        "password": "Rakesh@voxi123"
+    }
+    
     try:
         # Get access token from external API
         async with httpx.AsyncClient() as client:
             login_response = await client.post(
                 "https://platform.voicelabs.in/api/v1/login",
-                json={
-                    "username": "rakeshVoxiflow",
-                    "password": "Rakesh@voxi123"
-                }
+                json=EXTERNAL_API_CREDENTIALS
             )
             login_response.raise_for_status()
             auth_token = login_response.json()["access_token"]
-        # print(call_in)
+            
+        # Create the call with the obtained token
         call = await CallService.create_call(db, call_data=call_in, auth_token=auth_token)
         return call
+        
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"External API error: {str(e)}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

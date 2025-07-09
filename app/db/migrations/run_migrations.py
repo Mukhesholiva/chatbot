@@ -3,7 +3,7 @@ import os
 
 def run_migrations():
     # Connection parameters
-    server = "183.82.126.21"
+    server = "111.93.26.122"
     database = "voicebot"
     username = "sa"
     password = "Oliva@9876"
